@@ -166,7 +166,7 @@ export function SkuSearch({ skus }: { skus: SkuPriceRow[] }) {
           🔍
         </span>
         <input
-          type="search"
+          type="text"
           inputMode="search"
           autoComplete="off"
           autoCorrect="off"
@@ -175,7 +175,7 @@ export function SkuSearch({ skus }: { skus: SkuPriceRow[] }) {
           enterKeyHint="search"
           value={query}
           onChange={(e) => setQuery(e.target.value.slice(0, 60))}
-          placeholder="Cari sembako… (mis. trgu, kacng, sabn)"
+          placeholder="Cari sembako…"
           className="w-full rounded-full bg-bg-base focus:bg-bg-card border border-outline-base focus:border-dana-blue focus:outline-none focus:ring-2 focus:ring-dana-blue/30 pl-10 pr-10 py-fiat-s text-body-m text-text-strong placeholder:text-text-subtle"
         />
         {query && (
@@ -189,12 +189,6 @@ export function SkuSearch({ skus }: { skus: SkuPriceRow[] }) {
           </button>
         )}
       </div>
-
-      {!trimmed && (
-        <p className="mt-fiat-s text-body-s text-text-subtle">
-          Tip: typo bisa, fuzzy search aktif — ketik <code className="text-text-medium">trgu</code> ketemu Tepung Terigu, <code className="text-text-medium">kacng</code> ketemu Kacang Hijau.
-        </p>
-      )}
 
       {trimmed && (
         <ul className="mt-fiat-m divide-y divide-outline-base">

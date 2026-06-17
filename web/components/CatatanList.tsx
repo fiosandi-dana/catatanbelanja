@@ -1,8 +1,9 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { removeCatatItem, confirmBelanja } from "@/app/actions/catat";
+import { removeCatatItem } from "@/app/actions/catat";
 import { notifyCatat } from "@/lib/catat-events";
+import { ConfirmBelanjaSheet } from "./ConfirmBelanjaSheet";
 import type { CatatanItemRow } from "@/lib/queries/catatan";
 
 const ICONS: Record<string, string> = {
@@ -60,8 +61,7 @@ export function CatatanList({
   items: CatatanItemRow[];
   totalIdr: number;
 }) {
-  const [pasarLabel, setPasarLabel] = useState("");
-  const [confirming, setConfirming] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [optimisticItems, setOptimisticItems] = useOptimistic(
@@ -87,23 +87,6 @@ export function CatatanList({
       if (!result.ok) {
         notifyCatat("added", 1);
         setErrorMsg(result.error);
-      }
-    });
-  }
-
-  function handleConfirm() {
-    setErrorMsg(null);
-    const itemCount = items.length;
-    setConfirming(false);
-    notifyCatat("cleared", 0);
-    startTransition(async () => {
-      const result = await confirmBelanja({ pasarLabel: pasarLabel.trim() });
-      if (!result.ok) {
-        notifyCatat("set", itemCount);
-        setErrorMsg(result.error);
-        setConfirming(true);
-      } else {
-        setPasarLabel("");
       }
     });
   }
@@ -163,48 +146,21 @@ export function CatatanList({
         <p className="mt-fiat-s text-body-s text-feedback-error">⚠️ {errorMsg}</p>
       )}
 
-      {!confirming ? (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          disabled={pending}
-          className="mt-fiat-l w-full rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-l font-semibold py-fiat-m disabled:opacity-50"
-        >
-          Sudah belanja ini
-        </button>
-      ) : (
-        <div className="mt-fiat-l p-fiat-m bg-bg-card border border-dana-blue/30 rounded-lg">
-          <label htmlFor="pasar" className="text-body-s font-semibold text-text-strong">
-            Belanja di mana? <span className="font-normal text-text-subtle">(opsional)</span>
-          </label>
-          <input
-            id="pasar"
-            type="text"
-            value={pasarLabel}
-            onChange={(e) => setPasarLabel(e.target.value.slice(0, 60))}
-            placeholder="Misal: Pasar Kranji, Indomaret, Warung Bu Ani"
-            className="mt-fiat-s w-full rounded-md border border-outline-base bg-bg-base focus:bg-bg-card focus:border-dana-blue focus:outline-none focus:ring-2 focus:ring-dana-blue/30 px-fiat-m py-fiat-s text-body-m text-text-strong placeholder:text-text-subtle"
-          />
-          <div className="mt-fiat-m flex gap-fiat-s">
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              disabled={pending}
-              className="flex-1 rounded-md border border-outline-base bg-bg-card hover:bg-bg-base transition-colors text-text-strong text-body-m font-semibold py-fiat-s disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={pending}
-              className="flex-[2] rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-m font-semibold py-fiat-s disabled:opacity-50"
-            >
-              {pending ? "Menyimpan…" : "Konfirmasi belanja"}
-            </button>
-          </div>
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={() => setConfirmOpen(true)}
+        disabled={pending || items.length === 0}
+        className="mt-fiat-l w-full rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-l font-semibold py-fiat-m disabled:opacity-50"
+      >
+        Sudah belanja ini
+      </button>
+
+      <ConfirmBelanjaSheet
+        items={items}
+        totalPihpsIdr={totalIdr}
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+      />
     </>
   );
 }

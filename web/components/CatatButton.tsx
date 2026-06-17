@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CatatSheet } from "./CatatSheet";
 import { addCatat } from "@/app/actions/catat";
 import { notifyCatat } from "@/lib/catat-events";
@@ -37,12 +38,19 @@ export function CatatButton({
 }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
+
+  function handleOpen() {
+    setOpen(true);
+    // Warm the Catatan route so tapping the tab after catat is instant.
+    router.prefetch("/catatan");
+  }
 
   function handleConfirm(qty: number, notes: string, price: number | null) {
     // Close sheet + show toast IMMEDIATELY; do not wait for the DB.
@@ -83,7 +91,7 @@ export function CatatButton({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={triggerClass}>
+      <button type="button" onClick={handleOpen} className={triggerClass}>
         {label}
       </button>
 

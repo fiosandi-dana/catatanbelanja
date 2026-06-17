@@ -81,7 +81,7 @@ export default async function Beranda() {
   return (
     <div>
       <Header
-        title="Pasar DANA"
+        title="Catatan Belanja"
         leftSlot={
           <CityPicker currentCityId={cityId} currentCityName={cityLabel} />
         }

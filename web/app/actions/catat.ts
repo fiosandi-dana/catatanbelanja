@@ -115,7 +115,11 @@ export async function removeCatatItem(itemId: string): Promise<RemoveCatatItemRe
   return { ok: true };
 }
 
-type ConfirmBelanjaInput = { pasarLabel?: string };
+type ConfirmBelanjaInput = {
+  pasarLabel?: string;
+  /** Map of catatan_items.item_id → actual price per unit in IDR. Undefined or null entries persist as null (user didn't confirm). */
+  actualPrices?: Record<string, number | null>;
+};
 
 type ConfirmBelanjaResult =
   | { ok: true; riwayatId: string }
@@ -123,8 +127,9 @@ type ConfirmBelanjaResult =
 
 /**
  * Archive the active catatan into a riwayat entry. Copies items, snapshots
- * today's PIHPS price as price_pihps_idr. Per PRD §5.6, this happens in a
- * single logical step; we approximate it with sequential idempotent writes.
+ * the PIHPS price as price_pihps_idr, and persists user-supplied actual
+ * prices in the same write (so the user doesn't have to revisit Riwayat
+ * detail to record what they paid). Per PRD §5.6.
  */
 export async function confirmBelanja(input: ConfirmBelanjaInput): Promise<ConfirmBelanjaResult> {
   const supabase = await createClient();
@@ -141,8 +146,8 @@ export async function confirmBelanja(input: ConfirmBelanjaInput): Promise<Confir
   const cat = ((catResp.data as unknown as CatatanRow[]) ?? [])[0];
   if (!cat) return { ok: false, error: "Tidak ada catatan aktif" };
 
-  // Pull current items + their PIHPS-price-at-add (used as the snapshot)
   type ItemRow = {
+    item_id: string;
     sku_id: string;
     qty: number;
     price_at_add_idr: number;
@@ -150,13 +155,12 @@ export async function confirmBelanja(input: ConfirmBelanjaInput): Promise<Confir
   };
   const itemResp = await supabase
     .from("catatan_items")
-    .select("sku_id, qty, price_at_add_idr, notes")
+    .select("item_id, sku_id, qty, price_at_add_idr, notes")
     .eq("catatan_id", cat.catatan_id);
   if (itemResp.error) return { ok: false, error: itemResp.error.message };
   const items = (itemResp.data as unknown as ItemRow[]) ?? [];
   if (items.length === 0) return { ok: false, error: "Catatan kosong" };
 
-  // 1. Create the riwayat entry
   type RiwayatRow = { riwayat_id: string };
   const entryPayload = {
     user_id: user.id,
@@ -172,20 +176,27 @@ export async function confirmBelanja(input: ConfirmBelanjaInput): Promise<Confir
   if (entryResp.error) return { ok: false, error: entryResp.error.message };
   const riwayatId = (entryResp.data as unknown as RiwayatRow).riwayat_id;
 
-  // 2. Copy items
-  const itemRows = items.map((it) => ({
-    riwayat_id: riwayatId,
-    sku_id: it.sku_id,
-    qty: it.qty,
-    price_pihps_idr: it.price_at_add_idr,
-    notes: it.notes,
-  }));
+  const actuals = input.actualPrices ?? {};
+  const itemRows = items.map((it) => {
+    const provided = actuals[it.item_id];
+    const actual =
+      provided != null && provided > 0 && Number.isFinite(provided)
+        ? Math.round(provided)
+        : null;
+    return {
+      riwayat_id: riwayatId,
+      sku_id: it.sku_id,
+      qty: it.qty,
+      price_pihps_idr: it.price_at_add_idr,
+      price_actual_idr: actual,
+      notes: it.notes,
+    };
+  });
   const copyResp = await supabase
     .from("riwayat_items")
     .insert(itemRows as never);
   if (copyResp.error) return { ok: false, error: copyResp.error.message };
 
-  // 3. Archive the catatan
   const archPayload = { state: "archived", archived_at: new Date().toISOString() };
   const archResp = await supabase
     .from("catatans")

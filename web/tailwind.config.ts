@@ -13,12 +13,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Background / Brand — Pallete.Blue.Blue 50 (#108EE9). DANA primary.
+        // Brand: indigo-leaning blue. Distinct from DANA's #108EE9 (lighter,
+        // more saturated) — deliberately our own. Token name kept as
+        // "dana-blue" for code stability; semantic intent is "brand primary".
         "dana-blue": {
-          DEFAULT: "#108EE9",
-          50: "#108EE9",
-          60: "#0E79C6",
-          10: "#E9F5FE",
+          DEFAULT: "#2563EB",
+          50: "#2563EB",
+          60: "#1D4ED8",
+          10: "#EEF2FF",
         },
         // Background / Base / Primary — Pallete.Gray.Gray 10 (#F5F5F5). Page bg.
         "bg-base": "#F5F5F5",

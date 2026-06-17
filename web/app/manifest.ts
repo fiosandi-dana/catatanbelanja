@@ -7,14 +7,14 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Pasar DANA",
-    short_name: "Pasar DANA",
+    name: "Catatan Belanja",
+    short_name: "Catatan",
     description:
       "Cek harga sembako, catat belanja, lacak pengeluaran rumah tangga.",
     start_url: "/",
     display: "standalone",
     background_color: "#F5F5F5",
-    theme_color: "#108EE9",
+    theme_color: "#2563EB",
     lang: "id",
     orientation: "portrait",
     icons: [
