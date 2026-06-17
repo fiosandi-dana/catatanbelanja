@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { removeCatatItem, confirmBelanja } from "@/app/actions/catat";
+import { notifyCatat } from "@/lib/catat-events";
 import type { CatatanItemRow } from "@/lib/queries/catatan";
 
 const ICONS: Record<string, string> = {
@@ -53,8 +54,8 @@ function formatIdr(value: number): string {
 }
 
 export function CatatanList({
-  items,
-  totalIdr,
+  items: serverItems,
+  totalIdr: serverTotalIdr,
 }: {
   items: CatatanItemRow[];
   totalIdr: number;
@@ -63,24 +64,47 @@ export function CatatanList({
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [optimisticItems, setOptimisticItems] = useOptimistic(
+    serverItems,
+    (current, removedId: string) =>
+      current.filter((it) => it.item_id !== removedId),
+  );
+
+  const items = optimisticItems;
+  const totalIdr =
+    items === serverItems
+      ? serverTotalIdr
+      : items.reduce(
+          (sum, it) => sum + Math.round(it.price_at_add_idr * it.qty),
+          0,
+        );
 
   function handleRemove(itemId: string) {
     startTransition(async () => {
+      setOptimisticItems(itemId);
+      notifyCatat("removed", 1);
       const result = await removeCatatItem(itemId);
-      if (!result.ok) setErrorMsg(result.error);
+      if (!result.ok) {
+        notifyCatat("added", 1);
+        setErrorMsg(result.error);
+      }
     });
   }
 
   function handleConfirm() {
     setErrorMsg(null);
+    const itemCount = items.length;
+    setConfirming(false);
+    notifyCatat("cleared", 0);
     startTransition(async () => {
       const result = await confirmBelanja({ pasarLabel: pasarLabel.trim() });
       if (!result.ok) {
+        notifyCatat("set", itemCount);
         setErrorMsg(result.error);
-        return;
+        setConfirming(true);
+      } else {
+        setPasarLabel("");
       }
-      setConfirming(false);
-      setPasarLabel("");
     });
   }
 

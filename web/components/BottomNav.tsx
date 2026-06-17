@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { subscribeCatat } from "@/lib/catat-events";
 
 type Tab = {
   href: string;
@@ -27,22 +29,47 @@ const tabs: Tab[] = [
 ];
 
 /**
- * Persistent bottom navigation. Three tabs, active state in DANA blue,
- * inactive in medium gray. Catatan tab exposes a count badge slot.
+ * Persistent bottom navigation. The catatan count badge starts from the
+ * server-fetched seed value and updates **optimistically** via the in-process
+ * event bus — clicks feel instant without waiting for the next server render.
  */
 export function BottomNav({ catatanCount = 0 }: { catatanCount?: number }) {
   const pathname = usePathname();
+  const [count, setCount] = useState(catatanCount);
+
+  // Keep state in sync when the server hand-off bumps the seed (next page nav).
+  useEffect(() => {
+    setCount(catatanCount);
+  }, [catatanCount]);
+
+  useEffect(() => {
+    return subscribeCatat((kind, delta) => {
+      setCount((prev) => {
+        switch (kind) {
+          case "added":
+            return prev + delta;
+          case "removed":
+            return Math.max(0, prev - delta);
+          case "cleared":
+            return 0;
+          case "set":
+            return delta;
+        }
+      });
+    });
+  }, []);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-20 bg-bg-card border-t border-outline-base">
       <ul className="flex justify-around items-stretch">
         {tabs.map((tab) => {
           const active = tab.matches(pathname);
-          const showBadge = tab.href === "/catatan" && catatanCount > 0;
+          const showBadge = tab.href === "/catatan" && count > 0;
           return (
             <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
+                prefetch
                 className={`flex flex-col items-center justify-center py-fiat-s text-body-s ${
                   active
                     ? "text-dana-blue font-semibold"
@@ -53,7 +80,7 @@ export function BottomNav({ catatanCount = 0 }: { catatanCount?: number }) {
                   {tab.icon}
                   {showBadge && (
                     <span className="absolute -top-1 -right-3 min-w-[18px] h-[18px] px-1 rounded-full bg-feedback-error text-white text-caption font-bold flex items-center justify-center">
-                      {catatanCount}
+                      {count}
                     </span>
                   )}
                 </span>
