@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/BottomNav";
+import { getActiveCatatanItemCount } from "@/lib/queries/catatan";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,17 +18,18 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const catatanCount = await getActiveCatatanItemCount();
+
   return (
     <html lang="id">
       <body className="bg-bg-base min-h-screen font-sans text-text-strong">
         <main className="mx-auto max-w-md min-h-screen pb-[80px]">{children}</main>
-        {/* TODO: wire `catatanCount` to active catatan from Supabase. */}
-        <BottomNav catatanCount={0} />
+        <BottomNav catatanCount={catatanCount} />
       </body>
     </html>
   );

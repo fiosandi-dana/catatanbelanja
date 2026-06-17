@@ -1,10 +1,8 @@
 /**
- * Minimal hand-written Database types for Phase 0 read paths.
+ * Minimal hand-written Database types for Phase 0 read/write paths.
  *
- * Regenerate the full set with:
+ * Regenerate the full set later with:
  *   supabase gen types typescript --project-id <project-ref> --schema public > lib/supabase/types.ts
- * once you've linked the Supabase project. Until then, this covers what the UI
- * currently reads (skus, cities, price_snapshots).
  */
 export type Database = {
   public: {
@@ -44,7 +42,7 @@ export type Database = {
         Row: {
           sku_id: string;
           city_id: string;
-          snapshot_date: string; // ISO date YYYY-MM-DD
+          snapshot_date: string;
           price_idr: number;
           source: string;
           scraped_at: string;
@@ -54,6 +52,82 @@ export type Database = {
           "scraped_at"
         > & { scraped_at?: string };
         Update: Partial<Database["public"]["Tables"]["price_snapshots"]["Row"]>;
+      };
+      catatans: {
+        Row: {
+          catatan_id: string;
+          user_id: string;
+          city_id: string;
+          state: "active" | "archived" | "cancelled";
+          created_at: string;
+          archived_at: string | null;
+        };
+        Insert: {
+          catatan_id?: string;
+          user_id: string;
+          city_id: string;
+          state?: "active" | "archived" | "cancelled";
+          created_at?: string;
+          archived_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["catatans"]["Row"]>;
+      };
+      catatan_items: {
+        Row: {
+          item_id: string;
+          catatan_id: string;
+          sku_id: string;
+          qty: number;
+          price_at_add_idr: number;
+          added_at: string;
+        };
+        Insert: {
+          item_id?: string;
+          catatan_id: string;
+          sku_id: string;
+          qty: number;
+          price_at_add_idr: number;
+          added_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["catatan_items"]["Row"]>;
+      };
+      riwayat_entries: {
+        Row: {
+          riwayat_id: string;
+          user_id: string;
+          archived_catatan_id: string | null;
+          city_id: string;
+          pasar_label: string | null;
+          confirmed_at: string;
+        };
+        Insert: {
+          riwayat_id?: string;
+          user_id: string;
+          archived_catatan_id?: string | null;
+          city_id: string;
+          pasar_label?: string | null;
+          confirmed_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["riwayat_entries"]["Row"]>;
+      };
+      riwayat_items: {
+        Row: {
+          riwayat_item_id: string;
+          riwayat_id: string;
+          sku_id: string;
+          qty: number;
+          price_pihps_idr: number;
+          price_actual_idr: number | null;
+        };
+        Insert: {
+          riwayat_item_id?: string;
+          riwayat_id: string;
+          sku_id: string;
+          qty: number;
+          price_pihps_idr: number;
+          price_actual_idr?: number | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["riwayat_items"]["Row"]>;
       };
     };
     Views: Record<string, unknown>;

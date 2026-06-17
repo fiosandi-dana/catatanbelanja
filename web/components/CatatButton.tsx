@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { CatatSheet } from "./CatatSheet";
+import { addCatat } from "@/app/actions/catat";
 
 /**
- * "+ Catat" trigger. Opens a quick-add bottom sheet (PRD §5.7 step 4–5).
- * Supports both registry SKUs (with PIHPS price) and custom "add other" items
- * (priceIdr=null, isCustom=true).
+ * "+ Catat" trigger. Opens a quick-add bottom sheet (PRD §5.7 step 4–5) where
+ * the user picks qty + optional notes, then confirms. On confirm, calls the
+ * `addCatat` Server Action — which (a) upserts the SKU registry (for custom
+ * "+ Tambah" items), (b) finds/creates the active catatan, (c) inserts the
+ * line item. Then revalidates layout so the BottomNav badge updates.
  */
 export function CatatButton({
   skuId,
@@ -31,31 +34,49 @@ export function CatatButton({
 }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2400);
+    const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
 
-  function handleConfirm(qty: number, notes: string, _price: number | null) {
-    setOpen(false);
-    const qtyStr = Number.isInteger(qty) ? `${qty}` : qty.toString();
-    const suffix = notes ? ` · ${notes}` : "";
-    setToast(`${skuName} tercatat · ${qtyStr} ${unit}${suffix}`);
-    void skuId;
-    void _price;
-    onAfterConfirm?.();
+  function handleConfirm(qty: number, notes: string, price: number | null) {
+    startTransition(async () => {
+      const result = await addCatat({
+        skuId,
+        skuName,
+        unit,
+        qty,
+        priceIdr: price,
+        notes: notes || undefined,
+      });
+      setOpen(false);
+      if (result.ok) {
+        const qtyStr = Number.isInteger(qty) ? `${qty}` : qty.toString();
+        const suffix = notes ? ` · ${notes}` : "";
+        setToast(`${skuName} tercatat · ${qtyStr} ${unit}${suffix}`);
+        onAfterConfirm?.();
+      } else {
+        setToast(`Gagal: ${result.error}`);
+      }
+    });
   }
 
   const triggerClass =
     variant === "primary"
-      ? "shrink-0 rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-m font-semibold px-fiat-m py-fiat-s"
-      : "shrink-0 rounded-md border border-dashed border-dana-blue text-dana-blue hover:bg-dana-blue/10 transition-colors text-body-m font-semibold px-fiat-m py-fiat-s";
+      ? "shrink-0 rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-m font-semibold px-fiat-m py-fiat-s disabled:opacity-50"
+      : "shrink-0 rounded-md border border-dashed border-dana-blue text-dana-blue hover:bg-dana-blue/10 transition-colors text-body-m font-semibold px-fiat-m py-fiat-s disabled:opacity-50";
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={triggerClass}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={pending}
+        className={triggerClass}
+      >
         {label}
       </button>
 

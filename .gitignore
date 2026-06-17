@@ -18,3 +18,5 @@ node_modules/
 # Supabase (also covered by supabase/.gitignore)
 **/.branches/
 **/.temp/
+.vercel
+.env*
