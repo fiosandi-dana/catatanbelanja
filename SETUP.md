@@ -6,21 +6,18 @@ End-to-end bootstrap. Target time: **~15 minutes**. Everything is free-tier.
 
 ---
 
-## 1. Create the Supabase project (5 min)
+## 1. Supabase project (already provisioned)
 
-1. Go to https://supabase.com → **Sign in with GitHub** (no card required).
-2. Click **New project**.
-3. Settings:
-   - **Name**: `pasar-dana`
-   - **Database password**: generate a strong one and save it (1Password / Vault)
-   - **Region**: `Southeast Asia (Singapore)` — lowest latency to Indonesia
-   - **Plan**: Free
-4. Wait ~2 min for the project to provision.
-5. Once ready, grab three values from **Project Settings → API**:
-   - `Project URL` → goes into `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (server-side only, never expose)
-6. From **Project Settings → Database → Connection string → URI**, grab the `psql` connection string. Replace `[YOUR-PASSWORD]` with the DB password from step 3. This is your `DATABASE_URL`.
+- **Project ref**: `surgbsaqplqggbojklly`
+- **Project URL**: `https://surgbsaqplqggbojklly.supabase.co`
+- **Dashboard**: https://supabase.com/dashboard/project/surgbsaqplqggbojklly
+- **Claude MCP**: `.mcp.json` at the repo root registers the Supabase MCP server scoped to this project ref — Claude Code can run migrations / queries directly once you authorize the MCP in a fresh session.
+
+Grab the keys from **Project Settings → API**:
+- `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (server-side only, never expose to client bundle)
+
+From **Project Settings → Database → Connection string → URI**, copy the `psql` URI and replace `[YOUR-PASSWORD]` with your DB password — that's your `DATABASE_URL`.
 
 ---
 
@@ -44,6 +41,7 @@ Run these in order. Each is idempotent — re-runnable if anything goes wrong.
 psql "$DATABASE_URL" -f supabase/migrations/0001_init.sql
 psql "$DATABASE_URL" -f supabase/migrations/0001a_rls.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
+psql "$DATABASE_URL" -f supabase/migrations/0003_sku_registry_100.sql
 ```
 
 Verify:
@@ -105,7 +103,7 @@ Open Supabase **SQL Editor** and run:
 
 ```sql
 -- Set the two settings used by the cron job
-alter database postgres set app.supabase_url = 'https://<project-ref>.supabase.co';
+alter database postgres set app.supabase_url = 'https://surgbsaqplqggbojklly.supabase.co';
 alter database postgres set app.cron_secret  = '<paste CRON_SECRET from step 5>';
 ```
 
@@ -137,16 +135,17 @@ You'll see the Beranda with mock data for now. Wiring it to real Supabase data i
 
 ---
 
-## 8. Deploy to Vercel (3 min, optional for now)
+## 8. Vercel deployment (already provisioned)
 
-When ready to share the URL:
+- **Vercel project**: https://vercel.com/dana-initiatives/catatanbelanja (team: `dana-initiatives`)
+- **GitHub source**: `fiosandi-dana/catatanbelanja` (`main` auto-deploys)
+- **Root directory** in Vercel project settings: `web`
+- **Env vars to set** (Vercel → Project → Settings → Environment Variables):
+  - `NEXT_PUBLIC_SUPABASE_URL` = `https://surgbsaqplqggbojklly.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = (from Supabase Project Settings → API)
+  - `SUPABASE_SERVICE_ROLE_KEY` = (from same place — Server-side only env scope)
 
-1. Push this repo to GitHub (already done if you forked from `avelixio/catatanbelanja`).
-2. Go to https://vercel.com → **New Project** → import the repo.
-3. **Root directory**: `web` (not the repo root — Vercel needs to find `package.json`).
-4. **Framework preset**: Next.js (auto-detected).
-5. **Env vars**: paste the three `NEXT_PUBLIC_SUPABASE_*` keys from step 1.
-6. Deploy. You'll get `catatanbelanja-<hash>.vercel.app`.
+Push to `main` → Vercel auto-builds and deploys to a preview URL plus production at `catatanbelanja.vercel.app` (or the `dana-initiatives` team-scoped equivalent).
 
 ---
 

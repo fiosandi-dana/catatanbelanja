@@ -3,11 +3,13 @@ import { Header } from "@/components/Header";
 import { SectionTitle } from "@/components/SectionTitle";
 import { CityPicker } from "@/components/CityPicker";
 import { CatatButton } from "@/components/CatatButton";
+import { SkuSearch } from "@/components/SkuSearch";
 import {
   getLatestPrices,
   type LatestPriceRow,
   TOP_SKU_IDS,
 } from "@/lib/queries/latest-prices";
+import { getAllPricesForCity } from "@/lib/queries/all-prices";
 import { cityNameOf } from "@/lib/cities";
 import { getSelectedCity } from "@/app/actions/select-city";
 
@@ -61,7 +63,10 @@ const MOCK_ROWS: LatestPriceRow[] = TOP_SKU_IDS.map((id, i) => ({
 export default async function Beranda() {
   const cityId = await getSelectedCity();
   const cityLabel = cityNameOf(cityId);
-  const result = await getLatestPrices(cityId);
+  const [result, allPrices] = await Promise.all([
+    getLatestPrices(cityId),
+    getAllPricesForCity(cityId),
+  ]);
 
   const rows: LatestPriceRow[] =
     result.status === "ok" ? result.rows : MOCK_ROWS;
@@ -88,7 +93,17 @@ export default async function Beranda() {
         {result.status === "error" && <ErrorBanner message={result.message} />}
 
         <Card>
-          <SectionTitle>Harga sembako hari ini</SectionTitle>
+          <SectionTitle>Cari sembako</SectionTitle>
+          <p className="mt-fiat-xs text-body-s text-text-medium">
+            Ketik nama bahan yang kamu cari, atau pilih dari daftar populer di bawah.
+          </p>
+          <div className="mt-fiat-m">
+            <SkuSearch skus={allPrices.status === "ok" ? allPrices.rows : []} />
+          </div>
+        </Card>
+
+        <Card>
+          <SectionTitle>Populer hari ini</SectionTitle>
           <ul className="mt-fiat-m divide-y divide-outline-base">
             {rows.map((sku) => (
               <li

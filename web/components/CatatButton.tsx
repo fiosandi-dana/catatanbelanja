@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { CatatSheet } from "./CatatSheet";
 
 /**
- * "+ Catat" trigger. Opens a quick-add bottom sheet (PRD §5.7 step 4–5) where
- * the user picks qty + optional notes, then confirms. Phase 0 confirm is
- * local-only — toast feedback only. Wires to Supabase via Server Action once
- * `pasar-backend` exposes the addCatat RPC.
+ * "+ Catat" trigger. Opens a quick-add bottom sheet (PRD §5.7 step 4–5).
+ * Supports both registry SKUs (with PIHPS price) and custom "add other" items
+ * (priceIdr=null, isCustom=true).
  */
 export function CatatButton({
   skuId,
@@ -15,12 +14,20 @@ export function CatatButton({
   unit,
   priceIdr,
   icon,
+  isCustom = false,
+  label = "+ Catat",
+  variant = "primary",
+  onAfterConfirm,
 }: {
   skuId: string;
   skuName: string;
   unit: string;
-  priceIdr: number;
+  priceIdr: number | null;
   icon: string;
+  isCustom?: boolean;
+  label?: string;
+  variant?: "primary" | "ghost";
+  onAfterConfirm?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -31,23 +38,25 @@ export function CatatButton({
     return () => clearTimeout(t);
   }, [toast]);
 
-  function handleConfirm(qty: number, notes: string) {
+  function handleConfirm(qty: number, notes: string, _price: number | null) {
     setOpen(false);
     const qtyStr = Number.isInteger(qty) ? `${qty}` : qty.toString();
     const suffix = notes ? ` · ${notes}` : "";
     setToast(`${skuName} tercatat · ${qtyStr} ${unit}${suffix}`);
-    // TODO: call addCatat Server Action when backend lands.
     void skuId;
+    void _price;
+    onAfterConfirm?.();
   }
+
+  const triggerClass =
+    variant === "primary"
+      ? "shrink-0 rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-m font-semibold px-fiat-m py-fiat-s"
+      : "shrink-0 rounded-md border border-dashed border-dana-blue text-dana-blue hover:bg-dana-blue/10 transition-colors text-body-m font-semibold px-fiat-m py-fiat-s";
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="shrink-0 rounded-md bg-dana-blue hover:bg-dana-blue-60 active:bg-dana-blue-60 transition-colors text-white text-body-m font-semibold px-fiat-m py-fiat-s"
-      >
-        + Catat
+      <button type="button" onClick={() => setOpen(true)} className={triggerClass}>
+        {label}
       </button>
 
       <CatatSheet
@@ -59,6 +68,7 @@ export function CatatButton({
         unit={unit}
         icon={icon}
         priceIdr={priceIdr}
+        isCustom={isCustom}
       />
 
       {toast && (
