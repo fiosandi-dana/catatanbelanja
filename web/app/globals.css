@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: #f5f5f5; /* Background/Base/Primary - Pallete.Gray.Gray 10 */
+  color: #313131; /* Text/Base/Strong - Pallete.Gray.Gray 90 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reserve bottom space so the persistent BottomNav never covers content */
+main {
+  padding-bottom: 80px;
+}

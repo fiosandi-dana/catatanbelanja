@@ -1,0 +1,10 @@
+TODO: Replace this placeholder with the real Pasar DANA app icon.
+
+Required sizes for full PWA install support:
+  - public/icon.png (32x32 favicon fallback)
+  - public/icon-192.png (Android home screen)
+  - public/icon-512.png (splash screen)
+
+Until a real PNG exists at /public/icon.png, the browser will fall back to
+the default Next.js favicon. The manifest at app/manifest.ts references
+/icon.png — update both together when assets land.

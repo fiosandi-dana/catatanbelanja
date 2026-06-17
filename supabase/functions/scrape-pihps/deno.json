@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "dom"],
+    "strict": true
+  },
+  "tasks": {
+    "check": "deno check index.ts pihps-client.ts",
+    "serve": "supabase functions serve scrape-pihps --no-verify-jwt"
+  }
+}
