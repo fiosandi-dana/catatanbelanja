@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className="bg-bg-base min-h-screen font-sans text-text-strong">
-        <main className="mx-auto max-w-md min-h-screen">{children}</main>
+        <main className="mx-auto max-w-md min-h-screen pb-[80px]">{children}</main>
         {/* TODO: wire `catatanCount` to active catatan from Supabase. */}
         <BottomNav catatanCount={0} />
       </body>

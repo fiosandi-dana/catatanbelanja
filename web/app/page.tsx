@@ -1,59 +1,96 @@
 import { Card } from "@/components/Card";
 import { Header } from "@/components/Header";
 import { SectionTitle } from "@/components/SectionTitle";
+import { CityPicker } from "@/components/CityPicker";
+import { CatatButton } from "@/components/CatatButton";
+import {
+  getLatestPrices,
+  type LatestPriceRow,
+  TOP_SKU_IDS,
+} from "@/lib/queries/latest-prices";
+import { cityNameOf } from "@/lib/cities";
+import { getSelectedCity } from "@/app/actions/select-city";
 
-/**
- * Beranda (Surface A). Top 6 sembako SKUs with PIHPS price + Catat action.
- *
- * Phase 0 ships with mock prices so the screen passes the FIAT visual check
- * before `pasar-backend` finishes the `price_snapshots` table. Replace the
- * `mockPrices` array with a Server Component read from Supabase once the
- * schema lands.
- */
-
-type SkuRow = {
-  sku_id: string;
-  name_id: string;
-  unit: string;
-  icon: string;
-  price_idr: number;
+const ICONS: Record<string, string> = {
+  telur_ayam_ras: "🥚",
+  beras_medium: "🍚",
+  beras_premium: "🍚",
+  minyak_goreng_kemasan: "🛢️",
+  minyak_goreng_curah: "🛢️",
+  daging_ayam_ras: "🍗",
+  daging_sapi: "🥩",
+  cabai_merah_keriting: "🌶️",
+  cabai_merah_besar: "🌶️",
+  cabai_rawit_merah: "🌶️",
+  gula_pasir: "🍬",
+  bawang_merah: "🧅",
+  bawang_putih: "🧄",
 };
 
-const mockPrices: SkuRow[] = [
-  { sku_id: "telur_ayam_ras", name_id: "Telur Ayam Ras", unit: "kg", icon: "🥚", price_idr: 28500 },
-  { sku_id: "beras_medium", name_id: "Beras Medium", unit: "kg", icon: "🍚", price_idr: 13500 },
-  { sku_id: "minyak_goreng", name_id: "Minyak Goreng", unit: "L", icon: "🛢️", price_idr: 17200 },
-  { sku_id: "daging_ayam", name_id: "Daging Ayam Ras", unit: "kg", icon: "🍗", price_idr: 38000 },
-  { sku_id: "cabai_merah", name_id: "Cabai Merah Keriting", unit: "kg", icon: "🌶️", price_idr: 42000 },
-  { sku_id: "gula_pasir", name_id: "Gula Pasir", unit: "kg", icon: "🍬", price_idr: 16800 },
-];
+function iconFor(skuId: string): string {
+  return ICONS[skuId] ?? "🛒";
+}
 
 function formatIdr(value: number): string {
   return `Rp ${value.toLocaleString("id-ID")}`;
 }
 
-export default function Beranda() {
+function stalenessCaption(days: number): string {
+  if (days === 0) return "diperbarui hari ini";
+  if (days === 1) return "diperbarui kemarin";
+  return `terakhir diperbarui ${days} hari lalu`;
+}
+
+const MOCK_ROWS: LatestPriceRow[] = TOP_SKU_IDS.map((id, i) => ({
+  sku_id: id,
+  name_id: {
+    telur_ayam_ras: "Telur Ayam Ras",
+    beras_medium: "Beras Medium",
+    minyak_goreng_kemasan: "Minyak Goreng Kemasan",
+    daging_ayam_ras: "Daging Ayam Ras",
+    cabai_merah_keriting: "Cabai Merah Keriting",
+    gula_pasir: "Gula Pasir",
+  }[id]!,
+  unit: id === "minyak_goreng_kemasan" ? "L" : "kg",
+  category: "lainnya",
+  price_idr: [28500, 13500, 17200, 38000, 42000, 16800][i]!,
+  snapshot_date: "2026-01-01",
+  staleness_days: 0,
+}));
+
+export default async function Beranda() {
+  const cityId = await getSelectedCity();
+  const cityLabel = cityNameOf(cityId);
+  const result = await getLatestPrices(cityId);
+
+  const rows: LatestPriceRow[] =
+    result.status === "ok" ? result.rows : MOCK_ROWS;
+
+  const caption =
+    result.status === "ok"
+      ? `Data PIHPS Bank Indonesia · ${stalenessCaption(
+          Math.min(...result.rows.map((r) => r.staleness_days)),
+        )}`
+      : "Data PIHPS Bank Indonesia · diperbarui hari ini (demo)";
+
   return (
     <div>
       <Header
         title="Pasar DANA"
         leftSlot={
-          <button
-            type="button"
-            className="inline-flex items-center gap-fiat-xs rounded-md bg-white/15 px-fiat-m py-fiat-xs text-body-m font-medium text-white"
-          >
-            <span aria-hidden>📍</span>
-            <span>Bekasi</span>
-            <span aria-hidden>▾</span>
-          </button>
+          <CityPicker currentCityId={cityId} currentCityName={cityLabel} />
         }
       />
 
       <div className="-mt-fiat-l px-fiat-l space-y-fiat-m">
+        {result.status === "unconfigured" && <DemoBanner />}
+        {result.status === "empty" && <EmptyBanner cityLabel={cityLabel} />}
+        {result.status === "error" && <ErrorBanner message={result.message} />}
+
         <Card>
           <SectionTitle>Harga sembako hari ini</SectionTitle>
           <ul className="mt-fiat-m divide-y divide-outline-base">
-            {mockPrices.map((sku) => (
+            {rows.map((sku) => (
               <li
                 key={sku.sku_id}
                 className="flex items-center gap-fiat-m py-fiat-m"
@@ -62,7 +99,7 @@ export default function Beranda() {
                   className="text-[28px] leading-none w-10 text-center"
                   aria-hidden
                 >
-                  {sku.icon}
+                  {iconFor(sku.sku_id)}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-body-l font-semibold text-text-strong truncate">
@@ -72,20 +109,51 @@ export default function Beranda() {
                     {formatIdr(sku.price_idr)} / {sku.unit}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md bg-dana-blue text-white text-body-m font-semibold px-fiat-m py-fiat-s"
-                >
-                  + Catat
-                </button>
+                <CatatButton
+                  skuId={sku.sku_id}
+                  skuName={sku.name_id}
+                  unit={sku.unit}
+                  priceIdr={sku.price_idr}
+                  icon={iconFor(sku.sku_id)}
+                />
               </li>
             ))}
           </ul>
-          <p className="mt-fiat-m text-body-s text-text-subtle">
-            Data PIHPS Bank Indonesia · diperbarui hari ini
-          </p>
+          <p className="mt-fiat-m text-body-s text-text-subtle">{caption}</p>
         </Card>
       </div>
     </div>
+  );
+}
+
+function DemoBanner() {
+  return (
+    <Card>
+      <p className="text-body-s text-text-medium">
+        🧪 <strong className="text-text-strong">Mode demo</strong> — Supabase belum terhubung.
+        Lihat <code className="text-text-strong">SETUP.md</code> untuk menyalakan data PIHPS asli.
+      </p>
+    </Card>
+  );
+}
+
+function EmptyBanner({ cityLabel }: { cityLabel: string }) {
+  return (
+    <Card>
+      <p className="text-body-s text-text-medium">
+        Belum ada data harga PIHPS untuk <strong className="text-text-strong">{cityLabel}</strong>.
+        Jalankan backfill (<code className="text-text-strong">pihps-backfill.sql</code>) atau tunggu scraper harian.
+      </p>
+    </Card>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <Card>
+      <p className="text-body-s text-text-medium">
+        ⚠️ Tidak bisa memuat harga: <span className="text-text-strong">{message}</span>
+      </p>
+    </Card>
   );
 }
