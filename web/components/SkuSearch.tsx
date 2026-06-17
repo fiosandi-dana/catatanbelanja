@@ -64,7 +64,12 @@ function formatIdr(value: number): string {
 }
 
 function normalize(s: string): string {
-  return s.toLowerCase().normalize("NFKD").replace(/\s+/g, " ").trim();
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip diacritics
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function customSkuIdFor(query: string): string {
@@ -77,16 +82,76 @@ function customSkuIdFor(query: string): string {
   );
 }
 
+/**
+ * Subsequence fuzzy match. Returns a score (higher = better) or 0 if no match.
+ * - Exact equality → 1000
+ * - Whole-word startsWith → 900
+ * - startsWith query → 800
+ * - Substring → 500–700 (closer to start = higher)
+ * - Subsequence (chars in order, gaps allowed) → 100–400 (fewer gaps = higher)
+ * - No match → 0
+ *
+ * Inspired by the Sublime/VS Code command-palette fuzzy match.
+ */
+function scoreMatch(name: string, query: string): number {
+  const n = normalize(name);
+  const q = normalize(query);
+  if (!q) return 0;
+  if (n === q) return 1000;
+  if (n.startsWith(q + " ") || n === q) return 950;
+  if (n.startsWith(q)) return 800;
+  // Word-prefix match: any space-separated token starts with query
+  for (const word of n.split(" ")) {
+    if (word.startsWith(q)) return 700;
+  }
+  const idx = n.indexOf(q);
+  if (idx !== -1) {
+    // Earlier substring is better
+    return 600 - Math.min(idx, 100);
+  }
+  // Subsequence with gap penalty
+  let qi = 0;
+  let lastMatchIdx = -1;
+  let totalGap = 0;
+  let consecutive = 0;
+  let maxConsecutive = 0;
+  for (let ni = 0; ni < n.length && qi < q.length; ni++) {
+    if (n[ni] === q[qi]) {
+      if (lastMatchIdx !== -1) {
+        const gap = ni - lastMatchIdx - 1;
+        totalGap += gap;
+        if (gap === 0) consecutive++;
+        else {
+          maxConsecutive = Math.max(maxConsecutive, consecutive);
+          consecutive = 0;
+        }
+      }
+      lastMatchIdx = ni;
+      qi++;
+    }
+  }
+  maxConsecutive = Math.max(maxConsecutive, consecutive);
+  if (qi < q.length) return 0; // didn't match all query chars
+  // Score: 400 base − gap penalty + consecutive bonus
+  return Math.max(50, 400 - totalGap * 8 + maxConsecutive * 12);
+}
+
 export function SkuSearch({ skus }: { skus: SkuPriceRow[] }) {
   const [query, setQuery] = useState("");
 
   const trimmed = query.trim();
   const filtered = useMemo(() => {
     if (!trimmed) return [];
-    const q = normalize(trimmed);
-    return skus
-      .filter((s) => normalize(s.name_id).includes(q))
-      .slice(0, 12);
+    const scored: { sku: SkuPriceRow; score: number }[] = [];
+    for (const s of skus) {
+      const score = scoreMatch(s.name_id, trimmed);
+      if (score > 0) scored.push({ sku: s, score });
+    }
+    scored.sort(
+      (a, b) =>
+        b.score - a.score || a.sku.name_id.localeCompare(b.sku.name_id, "id"),
+    );
+    return scored.slice(0, 12).map((x) => x.sku);
   }, [trimmed, skus]);
 
   const showAddOther = trimmed.length >= 2 && filtered.length === 0;
@@ -103,10 +168,15 @@ export function SkuSearch({ skus }: { skus: SkuPriceRow[] }) {
         <input
           type="search"
           inputMode="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="search"
           value={query}
           onChange={(e) => setQuery(e.target.value.slice(0, 60))}
-          placeholder="Cari sembako lain… (mis. tepung, ikan, susu)"
-          className="w-full rounded-full bg-bg-base focus:bg-bg-card border border-outline-base focus:border-dana-blue focus:outline-none focus:ring-2 focus:ring-dana-blue/30 pl-10 pr-4 py-fiat-s text-body-m text-text-strong placeholder:text-text-subtle"
+          placeholder="Cari sembako… (mis. trgu, kacng, sabn)"
+          className="w-full rounded-full bg-bg-base focus:bg-bg-card border border-outline-base focus:border-dana-blue focus:outline-none focus:ring-2 focus:ring-dana-blue/30 pl-10 pr-10 py-fiat-s text-body-m text-text-strong placeholder:text-text-subtle"
         />
         {query && (
           <button
@@ -119,6 +189,12 @@ export function SkuSearch({ skus }: { skus: SkuPriceRow[] }) {
           </button>
         )}
       </div>
+
+      {!trimmed && (
+        <p className="mt-fiat-s text-body-s text-text-subtle">
+          Tip: typo bisa, fuzzy search aktif — ketik <code className="text-text-medium">trgu</code> ketemu Tepung Terigu, <code className="text-text-medium">kacng</code> ketemu Kacang Hijau.
+        </p>
+      )}
 
       {trimmed && (
         <ul className="mt-fiat-m divide-y divide-outline-base">
